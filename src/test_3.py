@@ -10,7 +10,9 @@ import numpy as np
 import roslaunch
 import rospkg
 from pathlib import Path
+from time import sleep
 
+# ------------------------------------ LaserScan class start ----------------------------------------
 class scan_subscriber():
 
     def __init__(self):
@@ -44,11 +46,28 @@ class scan_subscriber():
         # Optional Extra: Angular angle of the object
         # arc_angles = np.arange(-20, 21)
         # self.object_angle = arc_angles[np.argmin(front_arc)]
+# ------------------------------------ LaserScan class end ------------------------------------------------
+
+# ------------------------------------ Odometry class start -----------------------------------------------
+class get_odom():
+
+    def __init__(self):
+
+        self.sub = rospy.Subscriber("odom", Odometry, self.odom_callback)
+        # define the robot pose variables and initialise them to zero:
+        # variables for the robot's "current position":
+        self.x = 0.0
+        self.y = 0.0
+        self.theta_z = 0.0
+        # variables for a "reference position":
+        self.x0 = 0.0
+        self.y0 = 0.0
+        self.theta_z0 = 0.0
+
+        self.initial = True
 
 
-class searching_test():
-
-    def callback_function(self, topic_data: Odometry):
+    def odom_callback(self, topic_data: Odometry):
         # obtain relevant topic data: pose (position and orientation):
         pose = topic_data.pose.pose
         position = pose.position
@@ -75,15 +94,21 @@ class searching_test():
         # (e.g. the first time a message has been received), then
         # obtain a "reference position" (used to determine how far
         # the robot has moved during its current operation)
-        if self.startup:
+        if self.initial:
             # don't initialise again:
-            self.startup = False
+            self.initial = False
             # set the reference position:
             self.x0 = self.x
             self.y0 = self.y
             self.theta_z0 = self.theta_z
+# ------------------------------------ Odometry class end -----------------------------------------------
+
+# ------------------------------------ Explore class start ----------------------------------------------
+class searching_test():
 
     def __init__(self):
+
+        # define node name
         node_name = "searching_test"
         # a flag if this node has just been launched
         self.startup = True
@@ -94,43 +119,35 @@ class searching_test():
 
         # setup a '/cmd_vel' publisher and an '/odom' subscriber:
         self.pub = rospy.Publisher("cmd_vel", Twist, queue_size=10)
-        self.sub = rospy.Subscriber("odom", Odometry, self.callback_function)
         
-        # create data_scan object that subscribe to the LaserScan node
+        # create data_scan object that subscribe to the LaserScan topic
         self.data_scan = scan_subscriber() 
+
+        # create tb3_odom object that subscribe to the Odometry topic
+        tb3_odom = get_odom()
 
         rospy.init_node(node_name, anonymous=True)
         self.rate = rospy.Rate(10)  # hz
-
-        # define the robot pose variables and initialise them to zero:
-        # variables for the robot's "current position":
-        self.x = 0.0
-        self.y = 0.0
-        self.theta_z = 0.0
-        # variables for a "reference position":
-        self.x0 = 0.0
-        self.y0 = 0.0
-        self.theta_z0 = 0.0
-
-        # define a Twist message instance, to set robot velocities
-        self.vel = Twist()
-
-        self.finish = False
-        self.initial = True
 
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdownhook)
 
         rospy.loginfo(f"the {node_name} node has been initialised...")
 
+        # define a Twist message instance, to set robot velocities
+        self.vel = Twist()
+
+        # get the first map
+        ros_l.launch(roslaunch.core.Node(
+                    package="map_server",
+                    node_type="map_saver",
+                    args=f"-f {map_file}"))
+
     def shutdownhook(self):
         # publish an empty twist message to stop the robot
         # (by default all velocities will be zero):
         self.pub.publish(Twist())
-        self.ctrl_c = True
-
-        # Update the map after navigation
- 
+        self.ctrl_c = True  
 
 
     def main_loop(self):
@@ -144,43 +161,14 @@ class searching_test():
             min_seast_dis = self.data_scan.min_seast
 
             # print(f'The min front distance : {min_front_dis}')
-            # print(f'90 degree range = {min_east_dis}')
-            print(f'x location: {node.x}')
 
-            # target position
-            target_x = -1.5 
-            target_y = 0
-            target_tol = 0.2 # <--- Target position tolerance
-
-            # if node.x > target_x + target_tol or node.x < target_x - target_tol:
-
-            #     if min_front_dis > 0.5:
-            #         self.vel.linear.x = 0.1 * abs(target_x / (node.x + 0.01))
-            #         self.vel.angular.z = 0
-
-            #         if self.vel.linear.x > 0.3:
-            #             self.vel.linear.x = 0.3
-            #             self.vel.angular.z = 0
-            #     else:
-            #         # steer left
-            #         if min_neast_dis > 0.5:
-            #             self.vel.linear.x = 0
-            #             self.vel.angular.z = -0.3
-            #         else:
-            #             self.vel.linear.x = 0
-            #             self.vel.angular.z = 0.3 
-                    
-            # else:
-            #     self.vel.linear.x = 0
-            #     self.vel.angular.z = 0
-
-            if min_front_dis < 0.4:
+            if min_front_dis < 0.5:
                 # There's a wall up ahead --> Sharp turn left
                 self.vel.linear.x = 0.0
                 self.vel.angular.z = 0.3
 
                 # Too close to the bottom --> Right turn
-                if min_seast_dis < 0.2:
+                if min_seast_dis < 0.3:
                     self.vel.linear.x = 0.1
                     self.vel.angular.z = -0.3
             else:
@@ -189,7 +177,7 @@ class searching_test():
                 self.vel.angular.z = 0
 
                 # The wall not detected --> Moving straight to find the wall
-                if min_east_dis > 0.4:
+                if min_east_dis > 0.5:
                     self.vel.linear.x = 0.2
                     self.vel.angular.z = 0
                 else:
@@ -198,7 +186,7 @@ class searching_test():
                     self.vel.angular.z = -0.4
                 
                 # Too close to the wall --> Turn left to get away from the wall
-                if min_neast_dis < 0.4:
+                if min_neast_dis < 0.5:
                     self.vel.linear.x = 0.1
                     self.vel.angular.z = 0.2
 
@@ -206,19 +194,26 @@ class searching_test():
             self.pub.publish(self.vel)
 
             # maintain the loop rate @ 10 hz
-            self.rate.sleep()    
+            self.rate.sleep()   
+
+            # Update the map after navigation
+            # time = rospy.get_time()
+            # if (rospy.get_time() - time) > 5:
+            if self.ctrl_c == True:
+                ros_l.launch(roslaunch.core.Node(
+                    package="map_server",
+                    node_type="map_saver",
+                    args=f"-f {map_file}"))     
 
 
 # --------- Create path for saving the map ----------
-map_path = "maps/test_map"
+pkg_path = rospkg.RosPack().get_path('gr5_real_robot_1')
+map_path = Path(pkg_path).joinpath("maps")
+map_path.mkdir(exist_ok=True)
+map_file = map_path.joinpath('gr5_map_test')
 
 ros_l = roslaunch.scriptapi.ROSLaunch()
-ros_l.start()
-
-ros_l.launch(roslaunch.core.Node(
-                 package="map_server",
-                 node_type="map_saver",
-                 args=f"-f {map_path}")) 
+ros_l.start() 
 # ---------------------------------------------------
 
 if __name__ == "__main__":

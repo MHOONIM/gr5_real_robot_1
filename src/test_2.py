@@ -18,7 +18,7 @@ class scan_subscriber():
 
     def scan_callback(self, scan_data):
         # North side -- 1
-        f_left_arc = scan_data.ranges[21:0]
+        f_left_arc = scan_data.ranges[21:]
         f_right_arc = scan_data.ranges[-20:]
         front_arc = np.array(f_left_arc[::-1] + f_right_arc[::-1])
         self.min_front = front_arc.min() # <-- Minimum of front arc
@@ -142,12 +142,12 @@ class searching_test():
 
             # print(f'The min front distance : {min_front_dis}')
             # print(f'90 degree range = {min_east_dis}')
-            print(f'x location: {node.x}')
+            # print(f'x location: {node.x}')
 
             # target position
-            target_x = -1.5 
-            target_y = 0
-            target_tol = 0.2 # <--- Target position tolerance
+            # target_x = -1.5 
+            # target_y = 0
+            # target_tol = 0.2 # <--- Target position tolerance
 
             # if node.x > target_x + target_tol or node.x < target_x - target_tol:
 
