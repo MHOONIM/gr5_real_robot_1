@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# check out more on : https://github.com/MHOONIM/gr5_real_robot_1
 
 import rospy 
 from geometry_msgs.msg import Twist # import the Twist message for publishing velocity commands:
