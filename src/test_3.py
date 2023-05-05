@@ -120,11 +120,9 @@ class searching_test():
         # setup a '/cmd_vel' publisher and an '/odom' subscriber:
         self.pub = rospy.Publisher("cmd_vel", Twist, queue_size=10)
         
-        # create data_scan object that subscribe to the LaserScan topic
-        self.data_scan = scan_subscriber() 
-
-        # create tb3_odom object that subscribe to the Odometry topic
-        tb3_odom = get_odom()
+        # create objects that subscribe to the topics
+        self.data_scan = scan_subscriber() # <---- create data_scan object that subscribe to the LaserScan topic
+        self.tb3_odom = get_odom() # <---- create tb3_odom object that subscribe to the Odometry topic
 
         rospy.init_node(node_name, anonymous=True)
         self.rate = rospy.Rate(10)  # hz
@@ -134,14 +132,17 @@ class searching_test():
 
         rospy.loginfo(f"the {node_name} node has been initialised...")
 
+        self.path_map() # <---- Call the path_map function
+
         # define a Twist message instance, to set robot velocities
         self.vel = Twist()
 
-        # get the first map
-        ros_l.launch(roslaunch.core.Node(
+        # ------- get the first map (to make sure we've got a map) -----
+        self.ros_l.launch(roslaunch.core.Node(
                     package="map_server",
                     node_type="map_saver",
-                    args=f"-f {map_file}"))
+                    args=f"-f {self.map_file}"))
+        self.time = rospy.get_time()
 
     def shutdownhook(self):
         # publish an empty twist message to stop the robot
@@ -149,6 +150,17 @@ class searching_test():
         self.pub.publish(Twist())
         self.ctrl_c = True  
 
+    # --------- Create path for saving the map ----------
+    def path_map(self):
+        
+        pkg_path = rospkg.RosPack().get_path('gr5_real_robot_1')
+        map_path = Path(pkg_path).joinpath("maps")
+        map_path.mkdir(exist_ok=True)
+        self.map_file = map_path.joinpath('gr5_map_test')
+
+        self.ros_l = roslaunch.scriptapi.ROSLaunch()
+        self.ros_l.start() 
+    # ---------------------------------------------------
 
     def main_loop(self):
 
@@ -161,6 +173,7 @@ class searching_test():
             min_seast_dis = self.data_scan.min_seast
 
             # print(f'The min front distance : {min_front_dis}')
+            print(f'tb3_location_x : {self.tb3_odom.x}')
 
             if min_front_dis < 0.5:
                 # There's a wall up ahead --> Sharp turn left
@@ -196,26 +209,18 @@ class searching_test():
             # maintain the loop rate @ 10 hz
             self.rate.sleep()   
 
-            # Update the map after navigation
-            # time = rospy.get_time()
-            # if (rospy.get_time() - time) > 5:
-            if self.ctrl_c == True:
-                ros_l.launch(roslaunch.core.Node(
-                    package="map_server",
-                    node_type="map_saver",
-                    args=f"-f {map_file}"))     
+            # print(f'rostime = {rospy.get_time()}')
+            # Update the map after navigation in every 5 seconds
+            if (rospy.get_time() - self.time) > 5:
+                self.ros_l.launch(roslaunch.core.Node(
+                        package="map_server",
+                        node_type="map_saver",
+                        args=f"-f {self.map_file}")) 
+                self.time = rospy.get_time()    
+# ------------------------------------ Explore class end ----------------------------------------------
 
 
-# --------- Create path for saving the map ----------
-pkg_path = rospkg.RosPack().get_path('gr5_real_robot_1')
-map_path = Path(pkg_path).joinpath("maps")
-map_path.mkdir(exist_ok=True)
-map_file = map_path.joinpath('gr5_map_test')
-
-ros_l = roslaunch.scriptapi.ROSLaunch()
-ros_l.start() 
-# ---------------------------------------------------
-
+# ---------------------------------- Main program -----------------------------------------------------
 if __name__ == "__main__":
     node = searching_test()
     try:
