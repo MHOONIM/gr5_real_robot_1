@@ -18,31 +18,61 @@ class scan_subscriber():
 
     def __init__(self):
         self.subscriber = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
-
+        # keep track of previous scan data
+        self.previous_front = []  
+        self.previous_neast = []
+        self.previous_east = []
+        self.previous_seast = []
+        self.filter_size = 5  # number of previous scans to consider in the filter
     def scan_callback(self, scan_data):
+
         # North side -- 1
-        f_left_arc = scan_data.ranges[21:0]
+        f_left_arc = scan_data.ranges[0:20]
         f_right_arc = scan_data.ranges[-20:]
         front_arc = np.array(f_left_arc[::-1] + f_right_arc[::-1])
-        self.min_front = front_arc.min() # <-- Minimum of front arc
+        # moving average filter
+        self.previous_front.append(front_arc)
+        if len(self.previous_front) > self.filter_size:
+            self.previous_front.pop(0)  # remove the oldest front arc data
+        filtered_front = np.mean(self.previous_front, axis=0) #take the average of the front arc readings to get the filtered value
+
+        self.min_front = filtered_front.min() # <-- Minimum of front arc
 
         # North East side -- 2
-        neast_arc_1 = scan_data.ranges[-35:-45]
+        neast_arc_1 = scan_data.ranges[-45:-35]
         neast_arc_2 = scan_data.ranges[-55:-45]
         neast_arc = np.array(neast_arc_1[::-1] + neast_arc_2[::-1])
-        self.min_neast = neast_arc.min()
+
+        self.previous_neast.append(neast_arc)
+        if len(self.previous_neast) > self.filter_size:
+            self.previous_neast.pop(0)
+        filtered_neast = np.mean(self.previous_neast, axis=0)
+
+        self.min_neast = filtered_neast.min()
 
         # East side -- 3
-        east_arc_1 = scan_data.ranges[-80:-90]
+        east_arc_1 = scan_data.ranges[-90:-80]
         east_arc_2 = scan_data.ranges[-100:-90]
         east_arc = np.array(east_arc_1[::-1] + east_arc_2[::-1])
-        self.min_east = east_arc.min()
+
+        self.previous_east.append(east_arc)
+        if len(self.previous_east) > self.filter_size:
+            self.previous_east.pop(0)
+        filtered_east = np.mean(self.previous_east, axis=0)
+
+        self.min_east = filtered_east.min()
 
         # South East side -- 4
-        seast_arc_1 = scan_data.ranges[-115:-135]
-        seast_arc_2 = scan_data.ranges[-145:-135]
+        seast_arc_1 = scan_data.ranges[-130:-115]
+        seast_arc_2 = scan_data.ranges[-145:-130]
         seast_arc = np.array(seast_arc_1[::-1] + seast_arc_2[::-1])
-        self.min_seast = seast_arc.min()
+
+        self.previous_seast.append(seast_arc)
+        if len(self.previous_seast) > self.filter_size:
+            self.previous_seast.pop(0)
+        filtered_seast = np.mean(self.previous_seast, axis=0)
+
+        self.min_seast = filtered_seast.min()
 
         # Optional Extra: Angular angle of the object
         # arc_angles = np.arange(-20, 21)
@@ -145,6 +175,8 @@ class searching_test():
                     args=f"-f {self.map_file}"))
         self.time = rospy.get_time()
 
+
+
     def shutdownhook(self):
         # publish an empty twist message to stop the robot
         # (by default all velocities will be zero):
@@ -164,8 +196,11 @@ class searching_test():
     # ---------------------------------------------------
 
     def main_loop(self):
+        success = True
 
-        while not self.ctrl_c:
+        startTime = rospy.get_time()
+
+        while (rospy.get_time()-startTime < 87):
 
             # Get the distance data from the LaserScan
             min_front_dis = self.data_scan.min_front
@@ -173,13 +208,16 @@ class searching_test():
             min_neast_dis = self.data_scan.min_neast
             min_seast_dis = self.data_scan.min_seast
 
-            # print(f'The min front distance : {min_front_dis}')
-            print(f'tb3_location_x : {self.tb3_odom.x}')
+            print(f'The min front distance : {min_front_dis}')
+            print(f'The min seast distance : {min_seast_dis}')
+            print(f'The min neast distance : {min_neast_dis}')
+            print(f'The min east distance : {min_east_dis}')
+            # print(f'tb3_location_x : {self.tb3_odom.x}')
 
             if min_front_dis < 0.5:
                 # There's a wall up ahead --> Sharp turn left
                 self.vel.linear.x = 0.0
-                self.vel.angular.z = 0.3
+                self.vel.angular.z = 0.4
 
                 # Too close to the bottom --> Right turn
                 if min_seast_dis < 0.3:
@@ -187,7 +225,7 @@ class searching_test():
                     self.vel.angular.z = -0.3
             else:
                 # No wall ahead --> Moving forward
-                self.vel.linear.x = 0.3
+                self.vel.linear.x = 0.2
                 self.vel.angular.z = 0
 
                 # The wall not detected --> Moving straight to find the wall
@@ -196,12 +234,12 @@ class searching_test():
                     self.vel.angular.z = 0
                 else:
                     # the wall is detected --> Turn right to approach the wall
-                    self.vel.linear.x = 0.1
-                    self.vel.angular.z = -0.4
+                    self.vel.linear.x = 0.15
+                    self.vel.angular.z = -0.2
                 
                 # Too close to the wall --> Turn left to get away from the wall
                 if min_neast_dis < 0.5:
-                    self.vel.linear.x = 0.1
+                    self.vel.linear.x = 0.15
                     self.vel.angular.z = 0.2
 
             # publish whatever velocity command has been set in your code above:
@@ -218,6 +256,10 @@ class searching_test():
                         node_type="map_saver",
                         args=f"-f {self.map_file}")) 
                 self.time = rospy.get_time()    
+        
+        if success:
+            self.pub.publish(Twist())
+
 # ------------------------------------ Explore class end ----------------------------------------------
 
 

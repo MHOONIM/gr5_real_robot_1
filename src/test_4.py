@@ -20,29 +20,39 @@ class scan_subscriber():
         self.subscriber = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
 
     def scan_callback(self, scan_data):
+
+        lidar_left = scan_data.ranges[180:0]
+        lidar_right = scan_data.ranges[-180:]
+        surrounding_arc = np.array(lidar_left[::-1] + lidar_right[::-1])
+
+        # Filter out the upper bound and lower bound
+        for i in range (len(surrounding_arc)):
+            if surrounding_arc[i] > 1:
+                surrounding_arc[i] = 10
+            elif surrounding_arc[i] < 0.2:
+                surrounding_arc[i] = 10
+        
         # North side -- 1
-        f_left_arc = scan_data.ranges[21:0]
-        f_right_arc = scan_data.ranges[-20:]
-        front_arc = np.array(f_left_arc[::-1] + f_right_arc[::-1])
-        self.min_front = front_arc.min() # <-- Minimum of front arc
+        self.front_arc_l = surrounding_arc[339:359]
+        self.front_arc_r = surrounding_arc[0:20]
+        self.front_arc = np.concatenate((self.front_arc_l, self.front_arc_r))
+        self.min_front = self.front_arc.min() # <-- Minimum of front arc
+        self.avg_front = np.sum(self.front_arc) / len(self.front_arc)
 
         # North East side -- 2
-        neast_arc_1 = scan_data.ranges[-35:-45]
-        neast_arc_2 = scan_data.ranges[-55:-45]
-        neast_arc = np.array(neast_arc_1[::-1] + neast_arc_2[::-1])
-        self.min_neast = neast_arc.min()
+        self.neast_arc = surrounding_arc[35:55]
+        self.min_neast = self.neast_arc.min()
+        self.avg_neast = np.sum(self.neast_arc) / len(self.neast_arc)
 
-        # East side -- 3
-        east_arc_1 = scan_data.ranges[-80:-90]
-        east_arc_2 = scan_data.ranges[-100:-90]
-        east_arc = np.array(east_arc_1[::-1] + east_arc_2[::-1])
-        self.min_east = east_arc.min()
+        # # East side -- 3
+        self.east_arc = surrounding_arc[80:100]
+        self.min_east = self.east_arc.min()
+        self.avg_east = np.sum(self.east_arc) / len(self.east_arc)
 
-        # South East side -- 4
-        seast_arc_1 = scan_data.ranges[-115:-135]
-        seast_arc_2 = scan_data.ranges[-145:-135]
-        seast_arc = np.array(seast_arc_1[::-1] + seast_arc_2[::-1])
-        self.min_seast = seast_arc.min()
+        # # South East side -- 4
+        self.seast_arc = surrounding_arc[115:145]
+        self.min_seast = self.seast_arc.min()
+        self.avg_seast = np.sum(self.seast_arc) / len(self.seast_arc)
 
         # Optional Extra: Angular angle of the object
         # arc_angles = np.arange(-20, 21)
@@ -169,12 +179,13 @@ class searching_test():
 
             # Get the distance data from the LaserScan
             min_front_dis = self.data_scan.min_front
-            min_east_dis = self.data_scan.min_east
             min_neast_dis = self.data_scan.min_neast
+            min_east_dis = self.data_scan.min_east
             min_seast_dis = self.data_scan.min_seast
-
-            # print(f'The min front distance : {min_front_dis}')
-            print(f'tb3_location_x : {self.tb3_odom.x}')
+            
+            # print(f'The minimum front distance : {min_front_dis}')
+            # print(f'The average front distance : {avg_front_dis}')
+            # print(f'tb3_location_x : {self.tb3_odom.x}')
 
             if min_front_dis < 0.5:
                 # There's a wall up ahead --> Sharp turn left
@@ -211,8 +222,8 @@ class searching_test():
             self.rate.sleep()   
 
             # print(f'rostime = {rospy.get_time()}')
-            # Update the map after navigation in every 5 seconds
-            if (rospy.get_time() - self.time) > 5:
+            # Update the map after navigation in every 10 seconds
+            if (rospy.get_time() - self.time) > 10:
                 self.ros_l.launch(roslaunch.core.Node(
                         package="map_server",
                         node_type="map_saver",

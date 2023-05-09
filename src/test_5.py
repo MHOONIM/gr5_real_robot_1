@@ -12,6 +12,7 @@ import roslaunch
 import rospkg
 from pathlib import Path
 from time import sleep
+import math
 
 # ------------------------------------ LaserScan class start ----------------------------------------
 class scan_subscriber():
@@ -20,29 +21,52 @@ class scan_subscriber():
         self.subscriber = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
 
     def scan_callback(self, scan_data):
+
+        lidar_left = scan_data.ranges[360:0]
+        lidar_right = scan_data.ranges[-360:]
+        surrounding_arc = np.array(lidar_left[::-1] + lidar_right[::-1])
+
+        # Filter out the upper bound and lower bound
+        for i in range (len(surrounding_arc)):
+            if surrounding_arc[i] > 1:
+                surrounding_arc[i] = 10
+            elif surrounding_arc[i] < 0.2:
+                surrounding_arc[i] = 10
+        
+
         # North side -- 1
-        f_left_arc = scan_data.ranges[21:0]
-        f_right_arc = scan_data.ranges[-20:]
-        front_arc = np.array(f_left_arc[::-1] + f_right_arc[::-1])
-        self.min_front = front_arc.min() # <-- Minimum of front arc
+        self.front_arc_l = surrounding_arc[339:359]
+        self.front_arc_r = surrounding_arc[0:20]
+        self.front_arc = np.concatenate((self.front_arc_l, self.front_arc_r))
+        self.min_front = self.front_arc.min() # <-- Minimum of front arc
+        self.avg_front = np.sum(self.front_arc) / len(self.front_arc)
 
         # North East side -- 2
-        neast_arc_1 = scan_data.ranges[-35:-45]
-        neast_arc_2 = scan_data.ranges[-55:-45]
-        neast_arc = np.array(neast_arc_1[::-1] + neast_arc_2[::-1])
-        self.min_neast = neast_arc.min()
+        self.neast_arc = surrounding_arc[35:55]
+        self.min_neast = self.neast_arc.min()
+        self.avg_neast = np.sum(self.neast_arc) / len(self.neast_arc)
 
-        # East side -- 3
-        east_arc_1 = scan_data.ranges[-80:-90]
-        east_arc_2 = scan_data.ranges[-100:-90]
-        east_arc = np.array(east_arc_1[::-1] + east_arc_2[::-1])
-        self.min_east = east_arc.min()
+        # # East side -- 3
+        self.east_arc = surrounding_arc[80:100]
+        self.min_east = self.east_arc.min()
+        self.avg_east = np.sum(self.east_arc) / len(self.east_arc)
 
-        # South East side -- 4
-        seast_arc_1 = scan_data.ranges[-115:-135]
-        seast_arc_2 = scan_data.ranges[-145:-135]
-        seast_arc = np.array(seast_arc_1[::-1] + seast_arc_2[::-1])
-        self.min_seast = seast_arc.min()
+        # # South East side -- 4
+        self.seast_arc = surrounding_arc[115:145]
+        self.min_seast = self.seast_arc.min()
+        self.avg_seast = np.sum(self.seast_arc) / len(self.seast_arc)
+
+        # North west -- 5
+        self.nwest_arc = surrounding_arc[300:325]
+        self.min_nwest = self.nwest_arc.min()
+
+        # West -- 6
+        self.west_arc = surrounding_arc[260:280]
+        self.min_west = self.west_arc.min()
+
+        # South West -- 7
+        self.swest_arc = surrounding_arc[215:235]
+        self.min_swest = self.swest_arc.min()
 
         # Optional Extra: Angular angle of the object
         # arc_angles = np.arange(-20, 21)
@@ -138,6 +162,8 @@ class searching_test():
         # define a Twist message instance, to set robot velocities
         self.vel = Twist()
 
+        self.locate = False
+
         # ------- get the first map (to make sure we've got a map) -----
         self.ros_l.launch(roslaunch.core.Node(
                     package="map_server",
@@ -169,40 +195,64 @@ class searching_test():
 
             # Get the distance data from the LaserScan
             min_front_dis = self.data_scan.min_front
-            min_east_dis = self.data_scan.min_east
             min_neast_dis = self.data_scan.min_neast
+            min_east_dis = self.data_scan.min_east
             min_seast_dis = self.data_scan.min_seast
+            min_nwest_dis = self.data_scan.min_nwest
+            min_west_dis = self.data_scan.min_west
+            min_swest_dis = self.data_scan.min_swest
+            
+            # print(f'The minimum front distance : {min_front_dis}')
+            # print(f'The average front distance : {avg_front_dis}')
+            # print(f'tb3_location_x : {self.tb3_odom.x}')
 
-            # print(f'The min front distance : {min_front_dis}')
-            print(f'tb3_location_x : {self.tb3_odom.x}')
+            target_x = 1
+            target_y = 1
 
-            if min_front_dis < 0.5:
-                # There's a wall up ahead --> Sharp turn left
-                self.vel.linear.x = 0.0
-                self.vel.angular.z = 0.3
+            beta = self.tb3_odom.theta_z
+            if beta < 0:
+                beta = pi + (pi + beta)
+            alpha = math.atan(target_y / target_x)
+            if target_y < 0:
+                alpha = alpha + pi
+            gam = beta - alpha
 
-                # Too close to the bottom --> Right turn
-                if min_seast_dis < 0.3:
-                    self.vel.linear.x = 0.1
-                    self.vel.angular.z = -0.3
-            else:
-                # No wall ahead --> Moving forward
-                self.vel.linear.x = 0.3
-                self.vel.angular.z = 0
-
-                # The wall not detected --> Moving straight to find the wall
-                if min_east_dis > 0.5:
-                    self.vel.linear.x = 0.2
-                    self.vel.angular.z = 0
-                else:
-                    # the wall is detected --> Turn right to approach the wall
-                    self.vel.linear.x = 0.1
+            if self.locate == False: 
+                if gam > 0.1:
+                    self.vel.linear.x = 0
                     self.vel.angular.z = -0.4
-                
-                # Too close to the wall --> Turn left to get away from the wall
-                if min_neast_dis < 0.5:
-                    self.vel.linear.x = 0.1
-                    self.vel.angular.z = 0.2
+                elif gam < -0.1:
+                    self.vel.linear.x = 0
+                    self.vel.angular.z = 0.4
+                else:
+                    self.vel.linear.x = 0
+                    self.vel.angular.z = 0
+                    self.locate = True
+
+            else:
+                if (self.tb3_odom.x > target_x + 0.15 or self.tb3_odom.x < target_x - 0.15) or (self.tb3_odom.y > target_y + 0.15 or self.tb3_odom.y < target_y - 0.15):
+                    if min_front_dis > 0.5:
+                        if gam > 0.1 or gam < -0.1:
+                            self.vel.linear.x = 0.1
+                            self.vel.angular.z = gam * -0.5
+                        else:
+                            self.vel.linear.x = 0.2
+                            self.vel.angular.z = 0
+                    else:
+                        self.vel.linear.x = 0
+                        self.vel.angular.z = 0.2
+
+                        if min_neast_dis < 0.4 or min_east_dis < 0.4:
+                            self.vel.linear.x = 0
+                            self.vel.angular.z = 0.2
+                        else:
+                            self.vel.linear.x = 0
+                            self.vel.angular.z = 0
+                        
+
+                else:
+                    self.vel.linear.x = 0
+                    self.vel.angular.z = 0
 
             # publish whatever velocity command has been set in your code above:
             self.pub.publish(self.vel)
@@ -211,13 +261,13 @@ class searching_test():
             self.rate.sleep()   
 
             # print(f'rostime = {rospy.get_time()}')
-            # Update the map after navigation in every 5 seconds
-            if (rospy.get_time() - self.time) > 5:
-                self.ros_l.launch(roslaunch.core.Node(
-                        package="map_server",
-                        node_type="map_saver",
-                        args=f"-f {self.map_file}")) 
-                self.time = rospy.get_time()    
+            # Update the map after navigation in every 10 seconds
+            # if (rospy.get_time() - self.time) > 10:
+            #     self.ros_l.launch(roslaunch.core.Node(
+            #             package="map_server",
+            #             node_type="map_saver",
+            #             args=f"-f {self.map_file}")) 
+            #     self.time = rospy.get_time()    
 # ------------------------------------ Explore class end ----------------------------------------------
 
 
