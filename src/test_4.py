@@ -27,7 +27,7 @@ class scan_subscriber():
 
         # Filter out the upper bound and lower bound
         for i in range (len(surrounding_arc)):
-            if surrounding_arc[i] > 1:
+            if surrounding_arc[i] > 2:
                 surrounding_arc[i] = 10
             elif surrounding_arc[i] < 0.2:
                 surrounding_arc[i] = 10
