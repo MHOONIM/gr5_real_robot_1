@@ -39,38 +39,38 @@ class scan_subscriber():
         self.front_arc_r = surrounding_arc[0:20]
         self.front_arc = np.concatenate((self.front_arc_l, self.front_arc_r))
         self.min_front = self.front_arc.min() # <-- Minimum of front arc
-        # self.avg_front = np.sum(self.front_arc) / len(self.front_arc)
+        self.avg_front = np.sum(self.front_arc) / len(self.front_arc)
 
         # North East side -- 2
         self.neast_arc = surrounding_arc[30:60]
         self.min_neast = self.neast_arc.min()
-        # self.avg_neast = np.sum(self.neast_arc) / len(self.neast_arc)
+        self.avg_neast = np.sum(self.neast_arc) / len(self.neast_arc)
 
         # # East side -- 3
         self.east_arc = surrounding_arc[70:110]
         self.min_east = self.east_arc.min()
-        # self.avg_east = np.sum(self.east_arc) / len(self.east_arc)
+        self.avg_east = np.sum(self.east_arc) / len(self.east_arc)
 
         # # South East side -- 4
         self.seast_arc = surrounding_arc[120:150]
         self.min_seast = self.seast_arc.min()
-        # self.avg_seast = np.sum(self.seast_arc) / len(self.seast_arc)
+        self.avg_seast = np.sum(self.seast_arc) / len(self.seast_arc)
 
-        # North west -- 5
-        self.nwest_arc = surrounding_arc[300:325]
-        self.min_nwest = self.nwest_arc.min()
+        # # North west -- 5
+        # self.nwest_arc = surrounding_arc[300:325]
+        # self.min_nwest = self.nwest_arc.min()
 
-        # West -- 6
-        self.west_arc = surrounding_arc[255:285]
-        self.min_west = self.west_arc.min()
+        # # West -- 6
+        # self.west_arc = surrounding_arc[260:280]
+        # self.min_west = self.west_arc.min()
 
-        # South West -- 7
-        self.swest_arc = surrounding_arc[215:235]
-        self.min_swest = self.swest_arc.min()
+        # # South West -- 7
+        # self.swest_arc = surrounding_arc[215:235]
+        # self.min_swest = self.swest_arc.min()
 
         # Optional Extra: Angular angle of the object
-        arc_angles = np.arange(-20, 21)
-        self.object_angle = arc_angles[np.argmin(self.front_arc)]
+        # arc_angles = np.arange(-20, 21)
+        # self.object_angle = arc_angles[np.argmin(front_arc)]
 # ------------------------------------ LaserScan class end ------------------------------------------------
 
 # ------------------------------------ Odometry class start -----------------------------------------------
@@ -174,11 +174,11 @@ class searching_test():
         print(f'coordinate_y : {self.target_y}')
 
         # ------- get the first map (to make sure we've got a map) -----
-        # self.ros_l.launch(roslaunch.core.Node(
-        #             package="map_server",
-        #             node_type="map_saver",
-        #             args=f"-f {self.map_file}"))
-        # self.time = rospy.get_time()
+        self.ros_l.launch(roslaunch.core.Node(
+                    package="map_server",
+                    node_type="map_saver",
+                    args=f"-f {self.map_file}"))
+        self.time = rospy.get_time()
 
         # Initialise PID parameters
         self.kp = 0.5
@@ -244,14 +244,13 @@ class searching_test():
             min_neast_dis = self.data_scan.min_neast
             min_east_dis = self.data_scan.min_east
             min_seast_dis = self.data_scan.min_seast
-            min_nwest_dis = self.data_scan.min_nwest
-            min_west_dis = self.data_scan.min_west
-            min_swest_dis = self.data_scan.min_swest
+            # min_nwest_dis = self.data_scan.min_nwest
+            # min_west_dis = self.data_scan.min_west
+            # min_swest_dis = self.data_scan.min_swest
             
             # print(f'The minimum front distance : {min_front_dis}')
             # print(f'The average front distance : {avg_front_dis}')
             # print(f'tb3_location_x : {self.tb3_odom.x}')
-            # print(f'object_angle : {self.data_scan.object_angle}')
 
             # Compute for the angle diff
             beta = self.tb3_odom.theta_z
@@ -260,57 +259,48 @@ class searching_test():
 
             dis_y = self.target_y - self.tb3_odom.y
             dis_x = self.target_x - self.tb3_odom.x
-            alpha = abs(math.atan((dis_y) / (dis_x)))
-    
-            if self.target_x > self.tb3_odom.x and self.target_y > self.tb3_odom.y:
+            alpha = math.atan((dis_y) / (dis_x))
+        
+            if dis_x > 0 and dis_y > 0:
                 # if the target is in the quadrant 1
                 alpha = alpha * 1
-            elif self.target_x < self.tb3_odom.x and self.target_y > self.tb3_odom.y:
+            elif dis_x <= 0 and dis_y > 0:
                 # if the target is in the quadrant 2
                 alpha = pi - alpha
-            elif self.target_x < self.tb3_odom.x and self.target_y < self.tb3_odom.y:
+            elif dis_x <= 0 and dis_y <= 0:
                 # if the target is in the quadrant 3
-                alpha = pi + alpha
+                alpha = (2 * pi) - alpha
             else:
                 # if the target is in the quadrant 4
-                alpha = 2 * pi - alpha
+                alpha = alpha + (2 * pi)
            
             a_diff = beta - alpha
 
-<<<<<<< HEAD
-            # print(f'atan : {math.atan((dis_y) / (dis_x))}')
             # print(f'aplha = {alpha}')
             # print(f'beta = {beta}')
             # print(f'gamma = {a_diff}')
-            # print(f'target_x : {self.target_x} and odom.x : {self.tb3_odom.x}')
-            # print(f'target_y : {self.target_y} and odom.y : {self.tb3_odom.y}')
+            # print(f'target_x : {self.target_x}')
+            # print(f'target_y : {self.target_y}')
             # print(f'dis_x : {dis_x}')
             # print(f'dis_y : {dis_y}')
-=======
-            print(f'nwest : {min_nwest_dis}')
-            print(f'neast : {min_neast_dis}')
->>>>>>> d592612 (last chance)
-
-            self.error = beta - alpha
-            angular_speed = (self.kp * self.error) + (self.kd * (self.error - self.prev_error))
-            self.prev_error = self.error
-
-            if angular_speed > 1:
-                angular_speed = 1
-            elif angular_speed < -1:
-                angular_speed = -1
 
             # Locate the destination by making the angle diff close to 0.
             if self.locate == False: 
+                self.error = a_diff
+                angular_speed = (self.kp * self.error) + (self.kd * (self.error - self.prev_error))
+                self.prev_error = self.error
+
+                if angular_speed > 1:
+                    angular_speed = 1
+                elif angular_speed < -1:
+                    angular_speed = -1
                 
                 if a_diff > 0.15:
                     self.vel.linear.x = 0
-                    angular_speed = angular_speed * -1
-                    self.vel.angular.z = angular_speed
+                    self.vel.angular.z = angular_speed * -1
                 elif a_diff < -0.15:
                     self.vel.linear.x = 0
-                    angular_speed = angular_speed * -1
-                    self.vel.angular.z = angular_speed
+                    self.vel.angular.z = angular_speed * -1
                 else:
                     self.vel.linear.x = 0
                     self.vel.angular.z = 0
@@ -325,93 +315,44 @@ class searching_test():
                     if linear_speed > 0.26:
                         linear_speed = 0.26
                     # print(f'linear_speed = {linear_speed}')
-<<<<<<< HEAD
                     
-=======
->>>>>>> d592612 (last chance)
                     self.prev_error = self.error
 
-                    if a_diff < 0.15 and a_diff > -0.15:
+                    if a_diff < 0.1 and a_diff > -0.1:
                         if min_front_dis > 0.5:
                             self.vel.linear.x = linear_speed
-                            self.vel.angular.z = 0
-                            decision = False
-
+                            self.vel.angular.z = angular_speed * -1
                         else:
-                            # check & decide which direction to turn
-                            if self.data_scan.object_angle > 0:
-                                obst = 1
-                                decision = True
+                            self.vel.linear.x = 0
+                            self.vel.angular.z = 0.3
+                    else:
+                        if min_front_dis < 0.5:
+                            # There's a wall up ahead --> Sharp turn left
+                            self.vel.linear.x = 0.0
+                            self.vel.angular.z = 0.3
+
+                            # Too close to the bottom --> Right turn <------- THIS CONDITION IS NOT GOOD IN REAL ROBOT
+                            # if min_seast_dis < 0.5:
+                            #     self.vel.linear.x = 0.1
+                            #     self.vel.angular.z = -0.3
+                        else:
+                            # No wall ahead --> Moving forward
+                            self.vel.linear.x = linear_speed
+                            self.vel.angular.z = angular_speed
+
+                            # The wall not detected --> Moving straight to find the wall
+                            if min_east_dis > 0.5:
+                                self.vel.linear.x = linear_speed
+                                self.vel.angular.z = angular_speed
                             else:
-                                obst = 2
-                                decision = True
-
-                            if obst == 1 and decision == True: # <-- The object is on the right
-                                self.vel.linear.x = 0.1
-                                self.vel.angular.z = 0.3
-
-                                if min_neast_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0.4
-
-                                    if min_neast_dis < 0.3:
-                                        self.vel.linear.x = 0
-                                        self.vel.angular.z = 0.4
-                                
-                                if min_east_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
-                            if obst == 2 and decision == True:
+                                # the wall is detected --> Turn right to approach the wall
                                 self.vel.linear.x = 0.1
                                 self.vel.angular.z = -0.3
-                                obst = 2
-
-                                if min_nwest_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = -0.4
-
-                                    if min_west_dis < 0.3:
-                                        self.vel.linear.x = 0
-                                        self.vel.angular.z = -0.4
-                                
-                                if min_west_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
-                    else:
-                        # the robot is facing out of the target <-- try to turn back
-                        if min_neast_dis > 0.4 or min_nwest_dis > 0.4:
-                            self.vel.linear.x = 0.1
-                            self.vel.angular.z = angular_speed * -1
-
-                        else:
-                            if obst == 1:
-                                if min_neast_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0.4
-                                
-                                if min_east_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
-                            elif obst == 2:
-                                if min_nwest_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = -0.4
-                                
-                                if min_west_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-                    
-                    # print(f'a = {a}')
-<<<<<<< HEAD
-                    print(f'obst = {obst}')
-                    print(f'angular speed = {angular_speed}')
-=======
-                    # print(f'obst = {obst}')
-                    # print(f'angular speed = {angular_speed}')
->>>>>>> d592612 (last chance)
+                            
+                            # Too close to the wall --> Turn left to get away from the wall
+                            if min_neast_dis < 0.5:
+                                self.vel.linear.x = 0.1
+                                self.vel.angular.z = 0.2
 
                 else:
                     # the bot reachs the destination --> stop, update dest_flag, get a new destination and clear locating flag
@@ -434,11 +375,11 @@ class searching_test():
 
                     # print(f'rostime = {rospy.get_time()}')
                     # Update the map after navigation in every 10 seconds
-                    # self.ros_l.launch(roslaunch.core.Node(
-                    #                         package="map_server",
-                    #                         node_type="map_saver",
-                    #                         args=f"-f {self.map_file}")) 
-                    # self.time = rospy.get_time()   
+                    self.ros_l.launch(roslaunch.core.Node(
+                                            package="map_server",
+                                            node_type="map_saver",
+                                            args=f"-f {self.map_file}")) 
+                    self.time = rospy.get_time()   
 
             # publish whatever velocity command has been set in your code above:
             self.pub.publish(self.vel)

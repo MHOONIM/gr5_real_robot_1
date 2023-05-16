@@ -57,7 +57,7 @@ class scan_subscriber():
         # self.avg_seast = np.sum(self.seast_arc) / len(self.seast_arc)
 
         # North west -- 5
-        self.nwest_arc = surrounding_arc[300:325]
+        self.nwest_arc = surrounding_arc[295:325]
         self.min_nwest = self.nwest_arc.min()
 
         # West -- 6
@@ -277,19 +277,8 @@ class searching_test():
            
             a_diff = beta - alpha
 
-<<<<<<< HEAD
-            # print(f'atan : {math.atan((dis_y) / (dis_x))}')
-            # print(f'aplha = {alpha}')
-            # print(f'beta = {beta}')
-            # print(f'gamma = {a_diff}')
-            # print(f'target_x : {self.target_x} and odom.x : {self.tb3_odom.x}')
-            # print(f'target_y : {self.target_y} and odom.y : {self.tb3_odom.y}')
-            # print(f'dis_x : {dis_x}')
-            # print(f'dis_y : {dis_y}')
-=======
             print(f'nwest : {min_nwest_dis}')
             print(f'neast : {min_neast_dis}')
->>>>>>> d592612 (last chance)
 
             self.error = beta - alpha
             angular_speed = (self.kp * self.error) + (self.kd * (self.error - self.prev_error))
@@ -325,94 +314,45 @@ class searching_test():
                     if linear_speed > 0.26:
                         linear_speed = 0.26
                     # print(f'linear_speed = {linear_speed}')
-<<<<<<< HEAD
-                    
-=======
->>>>>>> d592612 (last chance)
                     self.prev_error = self.error
 
                     if a_diff < 0.15 and a_diff > -0.15:
-                        if min_front_dis > 0.5:
+                        if min_front_dis > 0.5 and min_neast_dis > 0.5 and min_nwest_dis > 0.5:
                             self.vel.linear.x = linear_speed
-                            self.vel.angular.z = 0
-                            decision = False
-
+                            self.vel.angular.z = angular_speed * -1
                         else:
-                            # check & decide which direction to turn
                             if self.data_scan.object_angle > 0:
                                 obst = 1
-                                decision = True
                             else:
                                 obst = 2
-                                decision = True
-
-                            if obst == 1 and decision == True: # <-- The object is on the right
-                                self.vel.linear.x = 0.1
-                                self.vel.angular.z = 0.3
-
-                                if min_neast_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0.4
-
-                                    if min_neast_dis < 0.3:
-                                        self.vel.linear.x = 0
-                                        self.vel.angular.z = 0.4
-                                
-                                if min_east_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
-                            if obst == 2 and decision == True:
-                                self.vel.linear.x = 0.1
-                                self.vel.angular.z = -0.3
-                                obst = 2
-
-                                if min_nwest_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = -0.4
-
-                                    if min_west_dis < 0.3:
-                                        self.vel.linear.x = 0
-                                        self.vel.angular.z = -0.4
-                                
-                                if min_west_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
                     else:
-                        # the robot is facing out of the target <-- try to turn back
-                        if min_neast_dis > 0.4 or min_nwest_dis > 0.4:
+                        if obst == 1:
+                            if min_neast_dis > 0.5:
+                                self.vel.linear.x = 0.2
+                                self.vel.angular.z = 0
+                                obst = 0
+                            else:
+                                if min_neast_dis < 0.3:
+                                    self.vel.linear.x = 0
+                                    self.vel.angular.z = 0.5
+                                else:
+                                    self.vel.linear.x = 0.1
+                                    self.vel.angular.z = 0.3
+                        elif obst == 2:
+                            if min_nwest_dis > 0.5:
+                                self.vel.linear.x = 0.2
+                                self.vel.angular.z = 0
+                                obst = 0
+                            else:
+                                if min_nwest_dis < 0.3:
+                                    self.vel.linear.x = 0
+                                    self.vel.angular.z = -0.5
+                                else:
+                                    self.vel.linear.x = 0.1
+                                    self.vel.angular.z = -0.3 
+                        else:
                             self.vel.linear.x = 0.1
                             self.vel.angular.z = angular_speed * -1
-
-                        else:
-                            if obst == 1:
-                                if min_neast_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0.4
-                                
-                                if min_east_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-
-                            elif obst == 2:
-                                if min_nwest_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = -0.4
-                                
-                                if min_west_dis < 0.4:
-                                    self.vel.linear.x = 0.1
-                                    self.vel.angular.z = 0
-                    
-                    # print(f'a = {a}')
-<<<<<<< HEAD
-                    print(f'obst = {obst}')
-                    print(f'angular speed = {angular_speed}')
-=======
-                    # print(f'obst = {obst}')
-                    # print(f'angular speed = {angular_speed}')
->>>>>>> d592612 (last chance)
-
                 else:
                     # the bot reachs the destination --> stop, update dest_flag, get a new destination and clear locating flag
                     self.vel.linear.x = 0

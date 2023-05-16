@@ -1,6 +1,11 @@
 <launch>
 
   <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch"/>
+<<<<<<< HEAD
   <node pkg="gr5_real_robot_1" type="test_10.py" name="searching_test" output="screen" />
   
+=======
+  <!-- <node pkg="gr5_real_robot_1" type="test_10.py" name="searching_test" output="screen" /> -->
+  <node pkg="gr5_real_robot_1" type="winnie_2_map.py" name="simple_publisher" output="screen" />
+>>>>>>> d592612 (last chance)
 </launch>
